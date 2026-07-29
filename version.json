@@ -1,7 +1,7 @@
 {
   "latest": "3.5.0",
-  "minRequired": "3.4.0",
+  "minRequired": "3.5.0",
   "releaseDate": "2026-07-29",
   "downloadUrl": "https://github.com/rdvsniper/extension/releases/download/rdv/RDV_SNIPER_v3.5.0.zip",
-  "changelog": "v3.5.0 — New USDT wallet address, smart Telegram admin bot with /token /block /unblock /online /users /stats commands, terminal scroll with auto-scroll pause, full security rebuild."
+  "changelog": "v3.5.0 "
 }
