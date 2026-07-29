@@ -1,7 +1,7 @@
 {
-  "latest": "3.4.0",
+  "latest": "3.5.0",
   "minRequired": "3.4.0",
-  "releaseDate": "2026-07-14",
-  "downloadUrl": "https://github.com/rdvsniper/extension/releases/download/rdv/RDV_Sniper_Automation_smart_extension_v3.4.0.zip",
-  "changelog": "v3.4.0 — Critical security update: tamper detection hardened, all module files integrity-checked, token block system improved. Reinstall required."
+  "releaseDate": "2026-07-29",
+  "downloadUrl": "https://github.com/rdvsniper/extension/releases/download/rdv/RDV_SNIPER_v3.5.0.zip",
+  "changelog": "v3.5.0 — New USDT wallet address, smart Telegram admin bot with /token /block /unblock /online /users /stats commands, terminal scroll with auto-scroll pause, full security rebuild."
 }
