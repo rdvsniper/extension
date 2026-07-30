@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RDV SNIPER — Admin Command Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #060913;
+      --panel: #0d1527;
+      --panel-border: rgba(0, 242, 254, 0.12);
+      --card: #141f36;
+      --card-hover: #1b2a47;
+      --card-border: rgba(255, 255, 255, 0.07);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #00f2fe;
+      --accent-glow: rgba(0, 242, 254, 0.35);
+      --green: #00e676;
+      --green-glow: rgba(0, 230, 118, 0.3);
+      --red: #ff2e63;
+      --red-glow: rgba(255, 46, 99, 0.35);
+      --amber: #ff9f43;
+      --amber-glow: rgba(255, 159, 67, 0.3);
+      --purple: #7928ca;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+
+    /* HEADER */
+    header {
+      background: rgba(13, 21, 39, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 14px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 30px rgba(0,0,0,0.5);
+    }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand-logo {
+      font-size: 22px;
+      background: linear-gradient(135deg, #00f2fe, #7928ca);
+      width: 44px; height: 44px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 24px var(--accent-glow);
+    }
+    .brand-title {
+      font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 900;
+      background: linear-gradient(135deg, #00f2fe 0%, #00e676 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      letter-spacing: 1.5px;
+    }
+    .brand-sub { font-size: 11px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.5px; }
+
+    .nav-tabs { display: flex; gap: 6px; background: rgba(0,0,0,0.5); padding: 4px; border-radius: 14px; border: 1px solid var(--card-border); }
+    .tab-btn {
+      background: transparent; border: none; color: var(--text-muted); padding: 9px 18px; border-radius: 10px;
+      font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; gap: 8px;
+    }
+    .tab-btn:hover { color: #fff; background: rgba(255,255,255,0.05); }
+    .tab-btn.active { background: var(--card); color: var(--accent); box-shadow: 0 4px 16px rgba(0,0,0,0.4); border: 1px solid var(--panel-border); }
+
+    .header-actions { display: flex; align-items: center; gap: 12px; }
+
+    .edge-badge {
+      display: flex; align-items: center; gap: 8px; background: rgba(0, 230, 118, 0.08); border: 1px solid rgba(0, 230, 118, 0.3);
+      color: var(--green); padding: 6px 14px; border-radius: 20px; font-size: 11.5px; font-weight: 700; cursor: pointer;
+    }
+    .edge-badge.offline { background: rgba(255, 46, 99, 0.1); border-color: rgba(255, 46, 99, 0.3); color: var(--red); }
+    .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); animation: pulse 1.8s infinite; }
+    .edge-badge.offline .pulse-dot { background: var(--red); box-shadow: 0 0 10px var(--red); }
+    @keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: 0.6; } }
+
+    main { flex: 1; padding: 24px 32px; max-width: 1650px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 24px; }
+
+    /* STATS CARDS */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+    .stat-card {
+      background: var(--panel); border: 1px solid var(--card-border); border-radius: 18px; padding: 20px 24px;
+      display: flex; flex-direction: column; gap: 8px; position: relative; overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3); transition: transform 0.2s, border-color 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-3px); border-color: var(--panel-border); }
+    .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--accent); }
+    .stat-card.green::before { background: var(--green); }
+    .stat-card.amber::before { background: var(--amber); }
+    .stat-card.red::before { background: var(--red); }
+    .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.2px; font-weight: 800; }
+    .stat-val { font-family: 'Orbitron', sans-serif; font-size: 32px; font-weight: 900; color: #fff; line-height: 1; }
+
+    /* PLANS SHOWCASE BANNER */
+    .plans-container {
+      background: var(--panel); border: 1px solid var(--panel-border); border-radius: 20px; padding: 24px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4); display: flex; flex-direction: column; gap: 16px;
+    }
+    .plans-header { display: flex; justify-content: space-between; align-items: center; }
+    .plans-header-title { font-family: 'Orbitron', sans-serif; font-size: 16px; font-weight: 800; color: var(--accent); display: flex; align-items: center; gap: 10px; }
+    .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+    
+    .plan-card {
+      background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 20px;
+      display: flex; flex-direction: column; justify-content: space-between; gap: 14px; position: relative;
+      transition: all 0.25s ease;
+    }
+    .plan-card:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 12px 30px var(--accent-glow); }
+    .plan-card.popular { border: 1px solid rgba(0, 230, 118, 0.4); background: linear-gradient(145deg, #14243b, #0f1d33); }
+    .plan-card.best-deal { border: 1px solid rgba(255, 159, 67, 0.4); }
+    
+    .plan-badge {
+      position: absolute; top: -12px; right: 16px; background: var(--green); color: #000;
+      font-size: 10px; font-weight: 900; padding: 3px 10px; border-radius: 12px; letter-spacing: 0.5px; text-transform: uppercase;
+      box-shadow: 0 0 12px var(--green-glow);
+    }
+    .plan-badge.gold { background: var(--amber); box-shadow: 0 0 12px var(--amber-glow); }
+    
+    .plan-title { font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+    .plan-price-box { display: flex; align-items: baseline; gap: 10px; }
+    .plan-price { font-family: 'Orbitron', sans-serif; font-size: 34px; font-weight: 900; color: #fff; }
+    .plan-tnd { font-size: 14px; font-weight: 800; color: var(--green); }
+    .plan-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+
+    /* LAYOUT TABS */
+    .tab-content { display: none; }
+    .tab-content.active { display: grid; }
+
+    #liveChatTab { grid-template-columns: 380px 1fr; gap: 22px; height: calc(100vh - 250px); min-height: 550px; }
+
+    .panel-box {
+      background: var(--panel); border: 1px solid var(--card-border); border-radius: 20px;
+      display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    }
+    .panel-header {
+      padding: 16px 20px; border-bottom: 1px solid var(--card-border); font-weight: 700; font-size: 13.5px;
+      color: var(--text); display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.25);
+    }
+
+    .search-box { padding: 12px 16px; background: rgba(0,0,0,0.3); border-bottom: 1px solid var(--card-border); }
+    .search-input {
+      width: 100%; background: var(--card); border: 1px solid var(--card-border); color: #fff;
+      padding: 10px 14px; border-radius: 10px; font-size: 12.5px; outline: none; transition: border-color 0.2s;
+    }
+    .search-input:focus { border-color: var(--accent); box-shadow: 0 0 12px var(--accent-glow); }
+
+    .threads-container { flex: 1; overflow-y: auto; }
+    .thread-item {
+      padding: 14px 18px; border-bottom: 1px solid var(--card-border); cursor: pointer; transition: all 0.2s;
+      position: relative; display: flex; flex-direction: column; gap: 6px;
+    }
+    .thread-item:hover { background: rgba(255,255,255,0.03); }
+    .thread-item.active { background: rgba(0, 242, 254, 0.08); border-left: 4px solid var(--accent); }
+
+    .thread-title { font-size: 14px; font-weight: 800; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+    .thread-username { display: flex; align-items: center; gap: 8px; }
+    .online-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); display: inline-block; box-shadow: 0 0 8px var(--green); }
+    .offline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); display: inline-block; }
+
+    .thread-snippet { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .thread-meta { display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; color: var(--text-dim); font-weight: 600; }
+
+    .badge-unread {
+      background: var(--red); color: #fff; font-size: 10px; font-weight: 900; padding: 2px 8px;
+      border-radius: 20px; box-shadow: 0 0 12px var(--red-glow); animation: pulse-unread 1.5s infinite;
+    }
+    @keyframes pulse-unread { 0%,100%{ opacity:1; } 50%{ opacity:0.6; } }
+
+    /* CHAT MESSAGES */
+    .chat-messages { flex: 1; padding: 22px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; background: rgba(0,0,0,0.2); }
+    
+    .msg-bubble {
+      max-width: 75%; padding: 14px 18px; border-radius: 18px; font-size: 13.5px; line-height: 1.55;
+      word-break: break-word; box-shadow: 0 6px 20px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 4px;
+    }
+    .msg-bubble.user {
+      align-self: flex-start; background: var(--card); border: 1px solid var(--card-border); color: #fff; border-bottom-left-radius: 4px;
+    }
+    .msg-bubble.admin {
+      align-self: flex-end; background: linear-gradient(135deg, rgba(0, 242, 254, 0.22), rgba(121, 40, 202, 0.22));
+      border: 1px solid rgba(0, 242, 254, 0.4); color: #fff; border-bottom-right-radius: 4px;
+    }
+    .msg-meta { font-size: 10px; color: var(--text-muted); font-weight: 800; display: flex; justify-content: space-between; gap: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .chat-input-bar { padding: 16px 22px; border-top: 1px solid var(--card-border); display: flex; gap: 12px; background: rgba(0,0,0,0.35); align-items: center; }
+    .chat-input {
+      flex: 1; background: var(--card); border: 1px solid var(--card-border); color: #fff; padding: 12px 18px;
+      border-radius: 12px; font-size: 13.5px; outline: none; transition: all 0.2s;
+    }
+    .chat-input:focus { border-color: var(--accent); box-shadow: 0 0 16px var(--accent-glow); }
+
+    /* BUTTONS */
+    .btn {
+      background: linear-gradient(135deg, #00f2fe, #00acc1); color: #000; border: none; padding: 10px 20px;
+      border-radius: 10px; font-weight: 800; font-size: 12.5px; cursor: pointer; transition: all 0.2s ease;
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px; letter-spacing: 0.3px;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px var(--accent-glow); }
+    .btn-green { background: linear-gradient(135deg, #00e676, #00b0ff); color: #000; }
+    .btn-amber { background: linear-gradient(135deg, #ff9f43, #ff6b6b); color: #000; }
+    .btn-red { background: linear-gradient(135deg, #ff2e63, #d50000); color: #fff; }
+    .btn-sm { padding: 6px 12px; font-size: 11px; border-radius: 8px; font-weight: 800; }
+
+    /* TABLE */
+    #usersTab { flex-direction: column; gap: 24px; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { background: rgba(0,0,0,0.4); padding: 16px 22px; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 800; }
+    td { padding: 16px 22px; border-top: 1px solid var(--card-border); font-size: 13px; vertical-align: middle; }
+    tr:hover { background: rgba(255,255,255,0.02); }
+
+    .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: 900; text-transform: uppercase; display: inline-block; letter-spacing: 0.8px; }
+    .status-badge.active { background: var(--green-glow); color: var(--green); border: 1px solid var(--green); }
+    .status-badge.blocked { background: var(--red-glow); color: var(--red); border: 1px solid var(--red); }
+    .status-badge.pending { background: rgba(255, 159, 67, 0.15); color: var(--amber); border: 1px solid var(--amber); }
+
+    .action-group { display: flex; gap: 6px; flex-wrap: wrap; }
+    
+    .toast {
+      position: fixed; bottom: 28px; right: 28px; background: var(--card); border: 1px solid var(--accent);
+      color: #fff; padding: 16px 28px; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+      display: none; z-index: 1000; font-weight: 800; font-size: 13.5px;
+    }
+
+    /* KV WARNING BANNER */
+    #kvWarningBanner {
+      display: none;
+      background: linear-gradient(135deg, rgba(255,46,99,0.18), rgba(213,0,0,0.12));
+      border: 1.5px solid rgba(255,46,99,0.55);
+      border-radius: 14px;
+      padding: 16px 24px;
+      margin: 0 32px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      display: none;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    #kvWarningBanner .kv-warn-icon { font-size: 24px; flex-shrink: 0; }
+    #kvWarningBanner .kv-warn-text { flex: 1; line-height: 1.6; }
+    #kvWarningBanner code { background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #ff8a80; }
+    #kvWarningBanner .kv-warn-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+    /* DEBUG MODAL */
+    #debugModal {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 2000;
+      align-items: center; justify-content: center;
+    }
+    #debugModal.open { display: flex; }
+    #debugModalBox {
+      background: var(--card); border: 1px solid var(--panel-border); border-radius: 20px;
+      padding: 32px; max-width: 560px; width: 90%; max-height: 85vh; overflow-y: auto;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.8);
+    }
+    #debugModalBox h2 { margin: 0 0 20px; font-size: 17px; color: var(--accent); }
+    #debugModalBox pre { background: rgba(0,0,0,0.5); border-radius: 10px; padding: 16px; font-size: 12px; color: #e0e0e0; overflow-x: auto; white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; }
+    #debugModalBox .dbg-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--card-border); font-size: 13px; }
+    #debugModalBox .dbg-key { color: var(--text-muted); font-weight: 700; }
+    #debugModalBox .dbg-val { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+    #debugModalBox .ok { color: var(--green); } #debugModalBox .fail { color: var(--red); }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">🎯</div>
+      <div>
+        <div class="brand-title">RDV SNIPER</div>
+        <div class="brand-sub">Cloudflare Edge Admin Console v3.5</div>
+      </div>
+    </div>
+
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('liveChatTab', this)">💬 Live Client Support</button>
+      <button class="tab-btn" onclick="switchTab('plansTab', this)">💎 Subscription Plans</button>
+      <button class="tab-btn" onclick="switchTab('usersTab', this)">👥 Client Devices</button>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-sm" onclick="showDebugModal()" style="background: rgba(255,159,67,0.15); color: var(--amber); border: 1px solid rgba(255,159,67,0.4);" title="Diagnose KV & Worker connection">🔬 Debug</button>
+      <button class="btn btn-sm" onclick="configureWorkerUrl()" style="background: var(--card); color: var(--accent); border: 1px solid var(--panel-border);">⚙️ Worker URL</button>
+      <div class="edge-badge" id="edgeBadge" onclick="configureWorkerUrl()">
+        <div class="pulse-dot"></div>
+        <span id="edgeBadgeText">EDGE SYSTEM ONLINE</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- KV NOT BOUND WARNING BANNER -->
+  <div id="kvWarningBanner">
+    <div class="kv-warn-icon">🔴</div>
+    <div class="kv-warn-text">
+      <strong>KV Storage Not Bound</strong> — The Worker is online but has no database connection.<br>
+      Users and messages cannot be saved. Go to <strong>Cloudflare → Workers → Your Worker → Settings → KV Namespace Bindings</strong> → Add a binding with variable name: <code>SNIPER_KV</code>
+    </div>
+    <div class="kv-warn-actions">
+      <button class="btn btn-sm" onclick="showDebugModal()">🔬 Diagnose</button>
+      <button class="btn btn-sm" onclick="document.getElementById('kvWarningBanner').style.display='none'" style="background: var(--card); color: var(--text-muted); border: 1px solid var(--card-border);">✕</button>
+    </div>
+  </div>
+
+  <main>
+    <!-- STATS GRID -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Devices</div>
+        <div class="stat-val" id="statTotal">0</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Active Licenses</div>
+        <div class="stat-val" id="statActive">0</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-label">Online Devices (10m)</div>
+        <div class="stat-val" id="statOnline">0</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Blocked Devices</div>
+        <div class="stat-val" id="statBlocked">0</div>
+      </div>
+    </div>
+
+    <!-- TAB 1: LIVE SUPPORT CHAT -->
+    <div id="liveChatTab" class="tab-content active">
+      <!-- LEFT THREADS -->
+      <div class="panel-box">
+        <div class="panel-header">
+          <span>Client Threads (<span id="threadCountBadge">0</span>)</span>
+          <button class="btn btn-sm" onclick="loadAllData()" style="padding: 4px 8px; font-size: 10px;">🔄 Refresh</button>
+        </div>
+        <div class="search-box">
+          <input type="text" id="threadSearch" class="search-input" placeholder="🔍 Search username or machine ID..." oninput="renderThreads(allUsersData)">
+        </div>
+        <div class="threads-container" id="threadsContainer">
+          <div style="padding: 30px; text-align: center; color: var(--text-muted); font-size: 13px;">Loading client threads...</div>
+        </div>
+      </div>
+
+      <!-- RIGHT CHAT CONSOLE -->
+      <div class="panel-box">
+        <div class="panel-header" id="activeChatHeader">
+          <span>💬 Select a client thread from the left to start live chat</span>
+        </div>
+        
+        <div class="chat-messages" id="chatMessagesBox">
+          <div style="margin: auto; text-align: center; color: var(--text-muted); font-size: 13.5px; display: flex; flex-direction: column; gap: 10px; align-items: center;">
+            <div style="font-size: 40px;">💬</div>
+            <div>Select a client device from the thread list to view conversation history and issue remote license activations.</div>
+          </div>
+        </div>
+
+        <div class="chat-input-bar">
+          <input type="text" id="chatInput" class="chat-input" placeholder="Type live reply to client extension..." onkeydown="if(event.key==='Enter') sendReply()">
+          <button class="btn" onclick="sendReply()">Send Reply 🚀</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: SUBSCRIPTION PLANS SHOWCASE -->
+    <div id="plansTab" class="tab-content">
+      <div class="plans-container">
+        <div class="plans-header">
+          <div class="plans-header-title">⚡ OFFICIAL SUBSCRIPTION PLANS</div>
+          <span style="font-size: 12px; color: var(--text-muted);">Remote token delivery via Cloudflare Edge</span>
+        </div>
+
+        <div class="plans-grid">
+          <!-- 7 DAYS -->
+          <div class="plan-card">
+            <div class="plan-title">7 DAYS ACCESS</div>
+            <div class="plan-price-box">
+              <span class="plan-price">$20</span>
+              <span class="plan-tnd">= 65 TND</span>
+            </div>
+            <div class="plan-desc">Short-term appointment sniper run. Full high-speed monitoring & auto-booking engine.</div>
+            <button class="btn btn-green" onclick="quickActivateSelected(7)">⚡ Remote Activate 7 Days ($20)</button>
+          </div>
+
+          <!-- 1 MONTH -->
+          <div class="plan-card popular">
+            <div class="plan-badge">🔥 MOST POPULAR</div>
+            <div class="plan-title">1 MONTH ACCESS</div>
+            <div class="plan-price-box">
+              <span class="plan-price">$75</span>
+              <span class="plan-tnd">= 170 TND</span>
+            </div>
+            <div class="plan-desc">Standard 30-day VIP plan. Includes priority Telegram alerts & unlimited automatic bookings.</div>
+            <button class="btn btn-amber" onclick="quickActivateSelected(30)">🔥 Remote Activate 1 Month ($75)</button>
+          </div>
+
+          <!-- 3 MONTHS -->
+          <div class="plan-card best-deal">
+            <div class="plan-badge gold">👑 BEST DEAL</div>
+            <div class="plan-title">3 MONTHS ACCESS 👑</div>
+            <div class="plan-price-box">
+              <span class="plan-price">$250</span>
+              <span class="plan-tnd">= 570 TND</span>
+            </div>
+            <div class="plan-desc">Ultimate 90-day license. Continuous monitoring, multi-category support & dedicated priority queue.</div>
+            <button class="btn btn-red" onclick="quickActivateSelected(90)">👑 Remote Activate 3 Months ($250)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: CLIENT DEVICES TABLE -->
+    <div id="usersTab" class="tab-content">
+      <div class="panel-box">
+        <div class="panel-header">
+          <span>Registered Client Devices & Remote License Management</span>
+          <input type="text" id="userSearch" class="search-input" placeholder="🔍 Search Machine ID or Username..." style="max-width: 300px;" oninput="filterUsers()">
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Client Username & Device ID</th>
+              <th>License Expiry</th>
+              <th>Last Seen</th>
+              <th>Remote 1-Click Activation & Controls</th>
+            </tr>
+          </thead>
+          <tbody id="userTableBody">
+            <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading client list...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    let API_BASE = localStorage.getItem('sniper_worker_url') || 'https://long-violet-f4a2.rdvsniperbot.workers.dev';
+    let activeThreadMachineId = null;
+    let allUsersData = [];
+    let isWorkerConnected = false;
+
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    function showToast(msg, color = 'var(--accent)') {
+      const t = document.getElementById('toast');
+      t.style.borderColor = color;
+      t.textContent = msg;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3500);
+    }
+
+    function configureWorkerUrl() {
+      const current = localStorage.getItem('sniper_worker_url') || API_BASE;
+      const input = prompt('⚙️ Enter your Cloudflare Worker URL:', current);
+      if (input && input.trim()) {
+        let clean = input.trim().replace(/\/+$/, '');
+        if (!clean.startsWith('http')) clean = 'https://' + clean;
+        localStorage.setItem('sniper_worker_url', clean);
+        API_BASE = clean;
+        showToast('🔄 Worker URL updated! Reconnecting...', 'var(--accent)');
+        loadAllData();
+      }
+    }
+
+    function setBadgeStatus(online, text) {
+      const badge = document.getElementById('edgeBadge');
+      const badgeText = document.getElementById('edgeBadgeText');
+      if (online) {
+        badge.classList.remove('offline');
+        badgeText.textContent = text || 'EDGE SYSTEM ONLINE';
+      } else {
+        badge.classList.add('offline');
+        badgeText.textContent = text || 'WORKER OFFLINE (Click ⚙️)';
+      }
+    }
+
+    async function loadAllData() {
+      try {
+        const res = await fetch(`${API_BASE}/admin/api/users`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.ok) {
+          isWorkerConnected = true;
+          setBadgeStatus(true, 'EDGE SYSTEM ONLINE');
+          allUsersData = data.users || [];
+          renderStats(data);
+          renderUserTable(allUsersData);
+          renderThreads(allUsersData);
+          if (data.kvConfigured === false) {
+            document.getElementById('kvWarningBanner').style.display = 'flex';
+          } else {
+            document.getElementById('kvWarningBanner').style.display = 'none';
+          }
+          if (activeThreadMachineId) loadChatMessages();
+        } else {
+          showToast('❌ API Error: ' + (data.error || 'Server error'), 'var(--red)');
+        }
+      } catch (e) {
+        isWorkerConnected = false;
+        setBadgeStatus(false, 'WORKER OFFLINE (Click ⚙️)');
+        // Fallback UI to prevent broken state
+        renderStats({ users: allUsersData, onlineCount: 0 });
+        if (!allUsersData.length) {
+          document.getElementById('threadsContainer').innerHTML = `
+            <div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 13px; display: flex; flex-direction: column; gap: 10px; align-items: center;">
+              <div style="font-size: 28px;">⚠️</div>
+              <div>Could not connect to Cloudflare Worker.<br><code style="font-size: 11px; color: var(--accent);">${escapeHtml(API_BASE)}</code></div>
+              <button class="btn btn-sm" onclick="configureWorkerUrl()" style="margin-top: 6px;">⚙️ Edit Worker URL</button>
+            </div>
+          `;
+          document.getElementById('userTableBody').innerHTML = `
+            <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">
+              ⚠️ Worker Offline (${escapeHtml(API_BASE)}). Deploy <code>cloudflare-worker.js</code> to Cloudflare or click <b>⚙️ Worker URL</b> in header.
+            </td></tr>
+          `;
+        }
+        showToast('⚠️ Cannot reach Cloudflare Worker. Deploy worker or check URL.', 'var(--amber)');
+      }
+    }
+
+    function renderStats(data) {
+      const users = data.users || [];
+      document.getElementById('statTotal').textContent = users.length;
+      document.getElementById('statActive').textContent = users.filter(u => u.status === 'active').length;
+      document.getElementById('statOnline').textContent = data.onlineCount || 0;
+      document.getElementById('statBlocked').textContent = users.filter(u => u.status === 'blocked').length;
+    }
+
+    function renderUserTable(users) {
+      const tbody = document.getElementById('userTableBody');
+      if (!users.length) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 30px;">No client devices registered yet</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = users.map(u => {
+        const statusClass = u.status === 'active' ? 'active' : u.status === 'blocked' ? 'blocked' : 'pending';
+        const expStr = u.tokenExpires ? new Date(u.tokenExpires).toISOString().slice(0, 10) : 'N/A';
+        const agoStr = u.lastSeen ? fmtAgo(u.lastSeen) : 'Never';
+        const displayName = u.username && u.username !== 'User' && u.username !== 'Client User' ? u.username : (u.chatId ? u.chatId.slice(0, 16) : 'Client Device');
+
+        return `<tr>
+          <td><span class="status-badge ${statusClass}">${u.status}</span></td>
+          <td>
+            <div style="font-weight: 800; color: #fff; font-size: 14px;">👤 ${escapeHtml(displayName)}</div>
+            <code style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent);">${u.chatId}</code>
+          </td>
+          <td><span style="font-family: 'JetBrains Mono', monospace; color: var(--text);">${expStr}</span></td>
+          <td><span style="color: var(--text-muted); font-size: 12px;">${agoStr}</span></td>
+          <td>
+            <div class="action-group">
+              <button class="btn btn-green btn-sm" onclick="remoteActivate('${u.chatId}', 7)">⚡ 7D ($20)</button>
+              <button class="btn btn-amber btn-sm" onclick="remoteActivate('${u.chatId}', 30)">🔥 1M ($75)</button>
+              <button class="btn btn-red btn-sm" onclick="remoteActivate('${u.chatId}', 90)">👑 3M ($250)</button>
+              ${u.status === 'blocked' 
+                ? `<button class="btn btn-sm" onclick="toggleBlock('${u.chatId}', 'unblock')">✅ Unblock</button>` 
+                : `<button class="btn btn-red btn-sm" onclick="toggleBlock('${u.chatId}', 'block')">🚫 Block</button>`}
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function renderThreads(users) {
+      const container = document.getElementById('threadsContainer');
+      const search = (document.getElementById('threadSearch')?.value || '').toLowerCase();
+      
+      const filtered = users.filter(u => 
+        (u.username || '').toLowerCase().includes(search) ||
+        (u.chatId || '').toLowerCase().includes(search)
+      );
+
+      document.getElementById('threadCountBadge').textContent = filtered.length;
+      if (!filtered.length) {
+        container.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">No matching client threads</div>`;
+        return;
+      }
+
+      const now = Date.now();
+      container.innerHTML = filtered.map(u => {
+        const displayName = u.username && u.username !== 'User' && u.username !== 'Client User' ? u.username : `Client (${u.chatId.slice(0, 10)})`;
+        const isSelected = u.chatId === activeThreadMachineId;
+        const isOnline = (now - (u.lastSeen || 0)) < 10 * 60 * 1000;
+        const unreadBadge = u.unread ? `<span class="badge-unread">${u.unread} NEW</span>` : '';
+        const snippet = u.lastMessage ? escapeHtml(u.lastMessage) : `ID: ${u.chatId.slice(0, 16)}…`;
+        const timeAgo = u.lastMessageTs ? fmtAgo(u.lastMessageTs) : (u.lastSeen ? fmtAgo(u.lastSeen) : '');
+
+        return `
+          <div class="thread-item ${isSelected ? 'active' : ''}" onclick="selectThread('${u.chatId}', '${escapeHtml(displayName)}')">
+            <div class="thread-title">
+              <div class="thread-username">
+                <span class="${isOnline ? 'online-dot' : 'offline-dot'}"></span>
+                <span>👤 ${escapeHtml(displayName)}</span>
+              </div>
+              ${unreadBadge}
+            </div>
+            <div class="thread-snippet">${snippet}</div>
+            <div class="thread-meta">
+              <span style="font-family: monospace;">${u.chatId.slice(0, 14)}…</span>
+              <span>${timeAgo}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function selectThread(machineId, displayName) {
+      activeThreadMachineId = machineId;
+      const user = allUsersData.find(u => u.chatId === machineId) || {};
+      const statusClass = user.status === 'active' ? 'active' : user.status === 'blocked' ? 'blocked' : 'pending';
+
+      document.getElementById('activeChatHeader').innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 15px; font-weight: 800;">Chatting with <strong>${escapeHtml(displayName)}</strong></span>
+            <span class="status-badge ${statusClass}">${user.status || 'pending'}</span>
+            <code style="font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 11px; background: rgba(0,242,254,0.1); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(0,242,254,0.2);">${machineId}</code>
+          </div>
+          <div class="action-group">
+            <button class="btn btn-green btn-sm" onclick="remoteActivate('${machineId}', 7)">⚡ 7D ($20)</button>
+            <button class="btn btn-amber btn-sm" onclick="remoteActivate('${machineId}', 30)">🔥 1M ($75)</button>
+            <button class="btn btn-red btn-sm" onclick="remoteActivate('${machineId}', 90)">👑 3M ($250)</button>
+          </div>
+        </div>
+      `;
+      renderThreads(allUsersData);
+      await loadChatMessages();
+    }
+
+    async function loadChatMessages() {
+      if (!activeThreadMachineId) return;
+      try {
+        const res = await fetch(`${API_BASE}/admin/api/chats?machineId=${encodeURIComponent(activeThreadMachineId)}`);
+        const data = await res.json();
+        const box = document.getElementById('chatMessagesBox');
+        if (data.ok && data.messages.length) {
+          box.innerHTML = data.messages.map(m => `
+            <div class="msg-bubble ${m.from === 'admin' ? 'admin' : 'user'}">
+              <div class="msg-meta">
+                <span>${m.from === 'admin' ? '👑 Admin Support' : '👤 Client User'}</span>
+                <span>${new Date(m.ts).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}</span>
+              </div>
+              <div>${escapeHtml(m.text)}</div>
+            </div>
+          `).join('');
+          box.scrollTop = box.scrollHeight;
+        } else {
+          box.innerHTML = `<div style="margin: auto; text-align: center; color: var(--text-muted); font-size: 13px;">No message history yet. Type a reply below to start chatting.</div>`;
+        }
+      } catch (e) {}
+    }
+
+    async function sendReply() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+      if (!activeThreadMachineId) {
+        showToast('⚠️ Please select a client thread from the left first!', 'var(--amber)');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/admin/api/reply`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ machineId: activeThreadMachineId, text }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          input.value = '';
+          showToast('✅ Reply sent! Delivered to extension instantly.', 'var(--green)');
+          loadChatMessages();
+        } else {
+          showToast('❌ Failed: ' + (data.error || 'Server error'), 'var(--red)');
+        }
+      } catch (e) {
+        showToast('❌ Network error sending reply', 'var(--red)');
+      }
+    }
+
+    async function remoteActivate(machineId, days) {
+      const planName = days === 7 ? '7 Days ($20 / 65 TND)' : days === 30 ? '1 Month ($75 / 170 TND)' : '3 Months ($250 / 570 TND)';
+      if (!confirm(`Activate Remote License [${planName}] for machine ${machineId}?`)) return;
+      try {
+        const res = await fetch(`${API_BASE}/admin/api/activate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ machineId, days }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(`⚡ License activated [${planName}]! Extension auto-syncs in 10s.`, 'var(--green)');
+          loadAllData();
+        } else {
+          showToast(`❌ Activation failed: ${data.error}`, 'var(--red)');
+        }
+      } catch (e) { showToast('❌ Network error', 'var(--red)'); }
+    }
+
+    function quickActivateSelected(days) {
+      if (!activeThreadMachineId) {
+        showToast('⚠️ Please select a client thread from the Live Support Chat tab first!', 'var(--amber)');
+        switchTab('liveChatTab', document.querySelectorAll('.tab-btn')[0]);
+        return;
+      }
+      remoteActivate(activeThreadMachineId, days);
+    }
+
+    async function toggleBlock(machineId, action) {
+      try {
+        const res = await fetch(`${API_BASE}/admin/api/block`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ machineId, action }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(`Device ${action}ed successfully`, action === 'block' ? 'var(--red)' : 'var(--green)');
+          loadAllData();
+        }
+      } catch (e) {}
+    }
+
+    function filterUsers() {
+      const q = document.getElementById('userSearch').value.toLowerCase();
+      const filtered = allUsersData.filter(u => 
+        (u.chatId || '').toLowerCase().includes(q) || 
+        (u.username || '').toLowerCase().includes(q)
+      );
+      renderUserTable(filtered);
+    }
+
+    function fmtAgo(ts) {
+      const s = Math.floor((Date.now() - ts) / 1000);
+      if (s < 60) return `${s}s ago`;
+      if (s < 3600) return `${Math.floor(s/60)}m ago`;
+      if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+      return `${Math.floor(s/86400)}d ago`;
+    }
+
+    // ── DEBUG MODAL ────────────────────────────────────────────────────
+    async function showDebugModal() {
+      document.getElementById('debugModal').classList.add('open');
+      document.getElementById('debugModalContent').innerHTML = `<p style="color:var(--text-muted); font-size:13px;">🔄 Loading debug info from Worker...</p>`;
+      try {
+        const res = await fetch(`${API_BASE}/admin/api/debug`);
+        const d = await res.json();
+        const rows = [
+          ['Worker URL', API_BASE],
+          ['Worker Version', d.workerVersion || 'N/A'],
+          ['KV Connected', d.kvConnected ? '<span class="ok">✅ YES</span>' : '<span class="fail">❌ NO — See instructions below</span>'],
+          ['Active KV Binding', d.activeKvBinding ? `<span class="ok">env.${d.activeKvBinding}</span>` : '<span class="fail">None found</span>'],
+          ['Users in KV', d.userCount ?? 'N/A'],
+          ['Chat Threads in KV', d.chatCount ?? 'N/A'],
+          ['Worker Timestamp', d.timestamp || 'N/A'],
+        ];
+        const kvRows = Object.entries(d.kvBindingStatus || {}).map(([k, v]) =>
+          `<div class="dbg-row"><span class="dbg-key">env.${k}</span><span class="dbg-val ${v ? 'ok' : 'fail'}">${v ? '✅ Bound' : '❌ Not bound'}</span></div>`
+        ).join('');
+        document.getElementById('debugModalContent').innerHTML = `
+          ${rows.map(([k,v]) => `<div class="dbg-row"><span class="dbg-key">${k}</span><span class="dbg-val">${v}</span></div>`).join('')}
+          <div style="margin-top:16px; font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">KV Binding Status</div>
+          ${kvRows}
+          ${!d.kvConnected ? `
+          <div style="margin-top:16px; background:rgba(255,46,99,0.1); border:1px solid rgba(255,46,99,0.3); border-radius:10px; padding:14px; font-size:12.5px; line-height:1.7;">
+            <strong style="color:var(--red);">🔴 Fix: Bind KV Namespace</strong><br>
+            1. Go to <strong>Cloudflare Dashboard → Workers & Pages → long-violet-f4a2</strong><br>
+            2. Click <strong>Settings → KV Namespace Bindings</strong><br>
+            3. Click <strong>Add binding</strong><br>
+            4. Variable name: <code>SNIPER_KV</code><br>
+            5. Select your KV namespace from the dropdown<br>
+            6. Click <strong>Save & Deploy</strong>
+          </div>` : `<div style="margin-top:12px; background:rgba(0,230,118,0.08); border:1px solid rgba(0,230,118,0.3); border-radius:10px; padding:12px; font-size:12.5px; color:var(--green);">✅ KV is connected and working correctly. ${d.userCount} users stored.</div>`}
+        `;
+      } catch (e) {
+        document.getElementById('debugModalContent').innerHTML = `<p style="color:var(--red);">❌ Could not reach Worker: ${escapeHtml(e.message)}</p>`;
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // Smart auto-poll every 6s (only when tab is visible) to save Cloudflare requests
+    loadAllData();
+    setInterval(() => {
+      if (!document.hidden) loadAllData();
+    }, 6000);
+  </script>
+
+  <!-- DEBUG MODAL -->
+  <div id="debugModal" onclick="if(event.target===this)this.classList.remove('open')">
+    <div id="debugModalBox">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h2>🔬 Worker & KV Debug Info</h2>
+        <button onclick="document.getElementById('debugModal').classList.remove('open')" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;">✕</button>
+      </div>
+      <div id="debugModalContent"></div>
+    </div>
+  </div>
+
+</body>
+</html>
