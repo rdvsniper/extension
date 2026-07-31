@@ -443,10 +443,10 @@
   <script>
     function getInitialApiBase() {
       const stored = localStorage.getItem('sniper_worker_url');
-      if (stored && stored.trim()) return stored.trim().replace(/\/+$/, '');
-      if (window.location.protocol.startsWith('http') && !window.location.origin.includes('file://')) {
-        return window.location.origin.replace(/\/+$/, '');
+      if (stored && stored.trim() && !stored.includes('onrender.com')) {
+        return stored.trim().replace(/\/+$/, '');
       }
+      localStorage.removeItem('sniper_worker_url');
       return 'https://long-violet-f4a2.rdvsniperbot.workers.dev';
     }
     let API_BASE = getInitialApiBase();
@@ -723,7 +723,12 @@
         const data = await res.json();
         if (data.ok) {
           showToast(`⚡ License activated [${planName}]! Extension auto-syncs in 10s.`, 'var(--green)');
-          loadAllData();
+          await loadAllData();
+          if (activeThreadMachineId === machineId) {
+            const user = allUsersData.find(u => u.chatId === machineId) || {};
+            const displayName = user.username && user.username !== 'User' && user.username !== 'Client User' ? user.username : `Client (${machineId.slice(0,10)})`;
+            selectThread(machineId, displayName);
+          }
         } else {
           showToast(`❌ Activation failed: ${data.error}`, 'var(--red)');
         }
