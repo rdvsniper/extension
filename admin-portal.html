@@ -441,15 +441,10 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    function getInitialApiBase() {
-      const stored = localStorage.getItem('sniper_worker_url');
-      if (stored && stored.trim() && !stored.includes('onrender.com')) {
-        return stored.trim().replace(/\/+$/, '');
-      }
-      localStorage.removeItem('sniper_worker_url');
-      return 'https://long-violet-f4a2.rdvsniperbot.workers.dev';
-    }
-    let API_BASE = getInitialApiBase();
+    // ── HARDCODED API URL — always points to active Cloudflare Worker ──────────
+    localStorage.removeItem('sniper_worker_url'); // clear any stale/broken cached URL
+    const API_BASE_DEFAULT = 'https://long-violet-f4a2.rdvsniperbot.workers.dev';
+    let API_BASE = API_BASE_DEFAULT;
     let activeThreadMachineId = null;
     let allUsersData = [];
     let isWorkerConnected = false;
@@ -471,11 +466,11 @@
 
     function configureWorkerUrl() {
       const current = API_BASE;
-      const input = prompt('⚙️ Enter Backend Server / Worker URL:\nLeave empty to auto-detect current domain.', current);
+      const input = prompt('⚙️ Enter Worker URL (leave empty to reset to default):', current);
       if (input !== null) {
         if (!input.trim()) {
+          API_BASE = API_BASE_DEFAULT;
           localStorage.removeItem('sniper_worker_url');
-          API_BASE = getInitialApiBase();
         } else {
           let clean = input.trim().replace(/\/+$/, '');
           if (!clean.startsWith('http')) clean = 'https://' + clean;
