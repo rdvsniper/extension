@@ -441,7 +441,15 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    let API_BASE = localStorage.getItem('sniper_worker_url') || 'https://long-violet-f4a2.rdvsniperbot.workers.dev';
+    function getInitialApiBase() {
+      const stored = localStorage.getItem('sniper_worker_url');
+      if (stored && stored.trim()) return stored.trim().replace(/\/+$/, '');
+      if (window.location.protocol.startsWith('http') && !window.location.origin.includes('file://')) {
+        return window.location.origin.replace(/\/+$/, '');
+      }
+      return 'https://long-violet-f4a2.rdvsniperbot.workers.dev';
+    }
+    let API_BASE = getInitialApiBase();
     let activeThreadMachineId = null;
     let allUsersData = [];
     let isWorkerConnected = false;
@@ -462,14 +470,19 @@
     }
 
     function configureWorkerUrl() {
-      const current = localStorage.getItem('sniper_worker_url') || API_BASE;
-      const input = prompt('⚙️ Enter your Cloudflare Worker URL:', current);
-      if (input && input.trim()) {
-        let clean = input.trim().replace(/\/+$/, '');
-        if (!clean.startsWith('http')) clean = 'https://' + clean;
-        localStorage.setItem('sniper_worker_url', clean);
-        API_BASE = clean;
-        showToast('🔄 Worker URL updated! Reconnecting...', 'var(--accent)');
+      const current = API_BASE;
+      const input = prompt('⚙️ Enter Backend Server / Worker URL:\nLeave empty to auto-detect current domain.', current);
+      if (input !== null) {
+        if (!input.trim()) {
+          localStorage.removeItem('sniper_worker_url');
+          API_BASE = getInitialApiBase();
+        } else {
+          let clean = input.trim().replace(/\/+$/, '');
+          if (!clean.startsWith('http')) clean = 'https://' + clean;
+          localStorage.setItem('sniper_worker_url', clean);
+          API_BASE = clean;
+        }
+        showToast('🔄 Server URL updated! Reconnecting...', 'var(--accent)');
         loadAllData();
       }
     }
@@ -493,7 +506,7 @@
         const data = await res.json();
         if (data.ok) {
           isWorkerConnected = true;
-          setBadgeStatus(true, 'EDGE SYSTEM ONLINE');
+          setBadgeStatus(true, 'SYSTEM ONLINE');
           allUsersData = data.users || [];
           renderStats(data);
           renderUserTable(allUsersData);
@@ -509,24 +522,24 @@
         }
       } catch (e) {
         isWorkerConnected = false;
-        setBadgeStatus(false, 'WORKER OFFLINE (Click ⚙️)');
+        setBadgeStatus(false, 'SYSTEM OFFLINE (Click ⚙️)');
         // Fallback UI to prevent broken state
         renderStats({ users: allUsersData, onlineCount: 0 });
         if (!allUsersData.length) {
           document.getElementById('threadsContainer').innerHTML = `
             <div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 13px; display: flex; flex-direction: column; gap: 10px; align-items: center;">
               <div style="font-size: 28px;">⚠️</div>
-              <div>Could not connect to Cloudflare Worker.<br><code style="font-size: 11px; color: var(--accent);">${escapeHtml(API_BASE)}</code></div>
-              <button class="btn btn-sm" onclick="configureWorkerUrl()" style="margin-top: 6px;">⚙️ Edit Worker URL</button>
+              <div>Could not connect to Backend Server.<br><code style="font-size: 11px; color: var(--accent);">${escapeHtml(API_BASE)}</code></div>
+              <button class="btn btn-sm" onclick="configureWorkerUrl()" style="margin-top: 6px;">⚙️ Edit Server URL</button>
             </div>
           `;
           document.getElementById('userTableBody').innerHTML = `
             <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">
-              ⚠️ Worker Offline (${escapeHtml(API_BASE)}). Deploy <code>cloudflare-worker.js</code> to Cloudflare or click <b>⚙️ Worker URL</b> in header.
+              ⚠️ Backend Server Offline (${escapeHtml(API_BASE)}). Click <b>⚙️ Worker URL</b> in header to set server URL.
             </td></tr>
           `;
         }
-        showToast('⚠️ Cannot reach Cloudflare Worker. Deploy worker or check URL.', 'var(--amber)');
+        showToast('⚠️ Cannot reach Backend Server. Check URL.', 'var(--amber)');
       }
     }
 
@@ -647,10 +660,13 @@
     async function loadChatMessages() {
       if (!activeThreadMachineId) return;
       try {
-        const res = await fetch(`${API_BASE}/admin/api/chats?machineId=${encodeURIComponent(activeThreadMachineId)}`);
+        let res = await fetch(`${API_BASE}/admin/api/chat?machineId=${encodeURIComponent(activeThreadMachineId)}`);
+        if (!res.ok) {
+          res = await fetch(`${API_BASE}/admin/api/chats?machineId=${encodeURIComponent(activeThreadMachineId)}`);
+        }
         const data = await res.json();
         const box = document.getElementById('chatMessagesBox');
-        if (data.ok && data.messages.length) {
+        if (data.ok && data.messages && data.messages.length) {
           box.innerHTML = data.messages.map(m => `
             <div class="msg-bubble ${m.from === 'admin' ? 'admin' : 'user'}">
               <div class="msg-meta">
