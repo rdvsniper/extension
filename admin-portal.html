@@ -502,7 +502,11 @@
         if (data.ok) {
           isWorkerConnected = true;
           setBadgeStatus(true, 'SYSTEM ONLINE');
-          allUsersData = data.users || [];
+          const newUsers = data.users || [];
+          // Detect new messages before updating allUsersData
+          if (allUsersData.length > 0) checkForNewMessages(newUsers);
+          else newUsers.forEach(u => { _prevUnreadMap[u.chatId] = u.unread || 0; });
+          allUsersData = newUsers;
           renderStats(data);
           renderUserTable(allUsersData);
           renderThreads(allUsersData);
@@ -511,14 +515,12 @@
           } else {
             document.getElementById('kvWarningBanner').style.display = 'none';
           }
-          if (activeThreadMachineId) loadChatMessages();
         } else {
           showToast('❌ API Error: ' + (data.error || 'Server error'), 'var(--red)');
         }
       } catch (e) {
         isWorkerConnected = false;
         setBadgeStatus(false, 'SYSTEM OFFLINE (Click ⚙️)');
-        // Fallback UI to prevent broken state
         renderStats({ users: allUsersData, onlineCount: 0 });
         if (!allUsersData.length) {
           document.getElementById('threadsContainer').innerHTML = `
@@ -530,7 +532,7 @@
           `;
           document.getElementById('userTableBody').innerHTML = `
             <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">
-              ⚠️ Backend Server Offline (${escapeHtml(API_BASE)}). Click <b>⚙️ Worker URL</b> in header to set server URL.
+              ⚠️ Backend Server Offline (${escapeHtml(API_BASE)}). Click <b>⚙️ Worker URL</b> in header.
             </td></tr>
           `;
         }
@@ -822,11 +824,43 @@
       return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
-    // Smart auto-poll every 6s (only when tab is visible) to save Cloudflare requests
+    // ── INSTANT NEW MESSAGE DETECTION ─────────────────────────────────────────
+    let _prevUnreadMap = {};
+
+    function checkForNewMessages(users) {
+      let hasNew = false;
+      for (const u of users) {
+        const prev = _prevUnreadMap[u.chatId] || 0;
+        const curr = u.unread || 0;
+        if (curr > prev) {
+          hasNew = true;
+          // Flash the thread item
+          const displayName = u.username && u.username !== 'User' ? u.username : `Client (${u.chatId.slice(0,10)})`;
+          showToast(`💬 New message from ${displayName}!`, 'var(--accent)');
+          // Play a beep using Web Audio API
+          try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.connect(g); g.connect(ctx.destination);
+            o.frequency.value = 880; o.type = 'sine';
+            g.gain.setValueAtTime(0.3, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.3);
+          } catch (_) {}
+          // If this is the active thread, auto-refresh chat
+          if (activeThreadMachineId === u.chatId) loadChatMessages();
+        }
+        _prevUnreadMap[u.chatId] = curr;
+      }
+      return hasNew;
+    }
+
+    // Fast poll every 2s for instant message detection
     loadAllData();
     setInterval(() => {
       if (!document.hidden) loadAllData();
-    }, 6000);
+    }, 2000);
   </script>
 
   <!-- DEBUG MODAL -->
