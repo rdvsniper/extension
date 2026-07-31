@@ -621,6 +621,10 @@
       const user = allUsersData.find(u => u.chatId === machineId) || {};
       const statusClass = user.status === 'active' ? 'active' : user.status === 'blocked' ? 'blocked' : 'pending';
 
+      const blockBtn = user.status === 'blocked'
+        ? `<button class="btn btn-sm" onclick="toggleBlock('${machineId}', 'unblock')" style="background:var(--green); color:#000;">✅ Unblock</button>`
+        : `<button class="btn btn-red btn-sm" onclick="toggleBlock('${machineId}', 'block')">🚫 Block Device</button>`;
+
       document.getElementById('activeChatHeader').innerHTML = `
         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 10px;">
           <div style="display: flex; align-items: center; gap: 10px;">
@@ -632,6 +636,7 @@
             <button class="btn btn-green btn-sm" onclick="remoteActivate('${machineId}', 7)">⚡ 7D ($20)</button>
             <button class="btn btn-amber btn-sm" onclick="remoteActivate('${machineId}', 30)">🔥 1M ($75)</button>
             <button class="btn btn-red btn-sm" onclick="remoteActivate('${machineId}', 90)">👑 3M ($250)</button>
+            ${blockBtn}
           </div>
         </div>
       `;
@@ -719,6 +724,7 @@
     }
 
     async function toggleBlock(machineId, action) {
+      if (!confirm(`Are you sure you want to ${action.toUpperCase()} device ${machineId}?`)) return;
       try {
         const res = await fetch(`${API_BASE}/admin/api/block`, {
           method: 'POST',
@@ -727,10 +733,17 @@
         });
         const data = await res.json();
         if (data.ok) {
-          showToast(`Device ${action}ed successfully`, action === 'block' ? 'var(--red)' : 'var(--green)');
-          loadAllData();
+          showToast(`🚫 Device ${action}ed successfully`, action === 'block' ? 'var(--red)' : 'var(--green)');
+          await loadAllData();
+          if (activeThreadMachineId === machineId) {
+            const user = allUsersData.find(u => u.chatId === machineId) || {};
+            const displayName = user.username || `Client (${machineId.slice(0,10)})`;
+            selectThread(machineId, displayName);
+          }
+        } else {
+          showToast(`❌ Could not ${action} device: ${data.error}`, 'var(--red)');
         }
-      } catch (e) {}
+      } catch (e) { showToast('❌ Network error', 'var(--red)'); }
     }
 
     function filterUsers() {
