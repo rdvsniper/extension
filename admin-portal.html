@@ -571,8 +571,27 @@
           });
           showToast(`⚡ License activated on Firebase [${planName}]!`, 'var(--green)');
           await loadAllData();
-          return;
         }
+
+        const res = await fetch(`${API_BASE}/admin/api/activate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ machineId, days }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(`⚡ License activated [${planName}]! Extension auto-syncs in 10s.`, 'var(--green)');
+          await loadAllData();
+          if (activeThreadMachineId === machineId) {
+            const user = allUsersData.find(u => u.chatId === machineId) || {};
+            const displayName = user.username && user.username !== 'User' && user.username !== 'Client User' ? user.username : `Client (${machineId.slice(0,10)})`;
+            selectThread(machineId, displayName);
+          }
+        } else {
+          showToast(`❌ Activation failed: ${data.error}`, 'var(--red)');
+        }
+      } catch (e) { showToast('❌ Network error', 'var(--red)'); }
+    }
 
     async function loadAllData() {
       try {
