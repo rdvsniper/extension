@@ -125,8 +125,8 @@
     .plan-badge.gold { background: var(--amber); box-shadow: 0 0 12px var(--amber-glow); }
     
     .plan-title { font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
-    .plan-price-box { display: flex; align-items: baseline; gap: 10px; }
-    .plan-price { font-family: 'Orbitron', sans-serif; font-size: 34px; font-weight: 900; color: #fff; }
+    .plan-price-box { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .plan-price { font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 900; color: #fff; }
     .plan-tnd { font-size: 14px; font-weight: 800; color: var(--green); }
     .plan-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
 
@@ -380,11 +380,11 @@
           <div class="plan-card">
             <div class="plan-title">7 DAYS ACCESS</div>
             <div class="plan-price-box">
-              <span class="plan-price">$20</span>
-              <span class="plan-tnd">= 65 TND</span>
+              <span class="plan-price">60 USDT</span>
+              <span class="plan-tnd">= 190 TND</span>
             </div>
             <div class="plan-desc">Short-term appointment sniper run. Full high-speed monitoring & auto-booking engine.</div>
-            <button class="btn btn-green" onclick="quickActivateSelected(7)">⚡ Remote Activate 7 Days ($20)</button>
+            <button class="btn btn-green" onclick="quickActivateSelected(7)">⚡ Remote Activate 7 Days (60 USDT)</button>
           </div>
 
           <!-- 1 MONTH -->
@@ -392,11 +392,11 @@
             <div class="plan-badge">🔥 MOST POPULAR</div>
             <div class="plan-title">1 MONTH ACCESS</div>
             <div class="plan-price-box">
-              <span class="plan-price">$75</span>
-              <span class="plan-tnd">= 170 TND</span>
+              <span class="plan-price">200 USDT</span>
+              <span class="plan-tnd">= 640 TND</span>
             </div>
             <div class="plan-desc">Standard 30-day VIP plan. Includes priority Telegram alerts & unlimited automatic bookings.</div>
-            <button class="btn btn-amber" onclick="quickActivateSelected(30)">🔥 Remote Activate 1 Month ($75)</button>
+            <button class="btn btn-amber" onclick="quickActivateSelected(30)">🔥 Remote Activate 1 Month (200 USDT)</button>
           </div>
 
           <!-- 3 MONTHS -->
@@ -404,11 +404,11 @@
             <div class="plan-badge gold">👑 BEST DEAL</div>
             <div class="plan-title">3 MONTHS ACCESS 👑</div>
             <div class="plan-price-box">
-              <span class="plan-price">$250</span>
-              <span class="plan-tnd">= 570 TND</span>
+              <span class="plan-price">500 USDT</span>
+              <span class="plan-tnd">= 1600 TND</span>
             </div>
             <div class="plan-desc">Ultimate 90-day license. Continuous monitoring, multi-category support & dedicated priority queue.</div>
-            <button class="btn btn-red" onclick="quickActivateSelected(90)">👑 Remote Activate 3 Months ($250)</button>
+            <button class="btn btn-red" onclick="quickActivateSelected(90)">👑 Remote Activate 3 Months (500 USDT)</button>
           </div>
         </div>
       </div>
@@ -614,9 +614,9 @@
           <td><span style="color: var(--text-muted); font-size: 12px;">${agoStr}</span></td>
           <td>
             <div class="action-group">
-              <button class="btn btn-green btn-sm" onclick="remoteActivate('${u.chatId}', 7)">⚡ 7D ($20)</button>
-              <button class="btn btn-amber btn-sm" onclick="remoteActivate('${u.chatId}', 30)">🔥 1M ($75)</button>
-              <button class="btn btn-red btn-sm" onclick="remoteActivate('${u.chatId}', 90)">👑 3M ($250)</button>
+              <button class="btn btn-green btn-sm" onclick="remoteActivate('${u.chatId}', 7)">⚡ 7D (60 USDT)</button>
+              <button class="btn btn-amber btn-sm" onclick="remoteActivate('${u.chatId}', 30)">🔥 1M (200 USDT)</button>
+              <button class="btn btn-red btn-sm" onclick="remoteActivate('${u.chatId}', 90)">👑 3M (500 USDT)</button>
               ${u.status === 'blocked' 
                 ? `<button class="btn btn-sm" onclick="toggleBlock('${u.chatId}', 'unblock')">✅ Unblock</button>` 
                 : `<button class="btn btn-red btn-sm" onclick="toggleBlock('${u.chatId}', 'block')">🚫 Block</button>`}
@@ -686,9 +686,9 @@
             <code style="font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 11px; background: rgba(0,242,254,0.1); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(0,242,254,0.2);">${machineId}</code>
           </div>
           <div class="action-group">
-            <button class="btn btn-green btn-sm" onclick="remoteActivate('${machineId}', 7)">⚡ 7D ($20)</button>
-            <button class="btn btn-amber btn-sm" onclick="remoteActivate('${machineId}', 30)">🔥 1M ($75)</button>
-            <button class="btn btn-red btn-sm" onclick="remoteActivate('${machineId}', 90)">👑 3M ($250)</button>
+            <button class="btn btn-green btn-sm" onclick="remoteActivate('${machineId}', 7)">⚡ 7D (60 USDT)</button>
+            <button class="btn btn-amber btn-sm" onclick="remoteActivate('${machineId}', 30)">🔥 1M (200 USDT)</button>
+            <button class="btn btn-red btn-sm" onclick="remoteActivate('${machineId}', 90)">👑 3M (500 USDT)</button>
             ${blockBtn}
           </div>
         </div>
@@ -777,7 +777,7 @@
     }
 
     async function remoteActivate(machineId, days) {
-      const planName = days === 7 ? '7 Days ($20 / 65 TND)' : days === 30 ? '1 Month ($75 / 170 TND)' : '3 Months ($250 / 570 TND)';
+      const planName = days === 7 ? '7 Days (60 USDT / 190 TND)' : days === 30 ? '1 Month (200 USDT / 640 TND)' : '3 Months (500 USDT / 1600 TND)';
       if (!confirm(`Activate Remote License [${planName}] for machine ${machineId}?`)) return;
       try {
         const res = await fetch(`${API_BASE}/admin/api/activate`, {
