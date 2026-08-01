@@ -524,9 +524,55 @@
       }
     }
 
-    function isFirebaseUrl(url) {
-      return url.includes('firebaseio.com') || url.includes('firebasedatabase.app');
+    function cleanFirebaseUrl(url) {
+      if (!url || typeof url !== 'string') return '';
+      url = url.trim();
+      const consoleMatch = url.match(/console\.firebase\.google\.com\/project\/[^\/]+\/database\/([^\/]+)/i);
+      if (consoleMatch && consoleMatch[1]) {
+        return `https://${consoleMatch[1]}.firebaseio.com`;
+      }
+      return url.replace(/\/+$/, '');
     }
+
+    function isFirebaseUrl(url) {
+      if (!url) return false;
+      return url.includes('firebaseio.com') || url.includes('firebasedatabase.app') || url.includes('firebase.google.com');
+    }
+
+    async function remoteActivate(machineId, days) {
+      const planName = days === 1 ? '1 Day Trial (FREE)' : days === 7 ? '7 Days (60 USDT / 190 TND)' : days === 30 ? '1 Month (200 USDT / 585 TND)' : '3 Months (500 USDT / 1600 TND)';
+      if (!confirm(`Activate Remote License [${planName}] for machine ${machineId}?`)) return;
+      try {
+        if (isFirebaseUrl(API_BASE)) {
+          const cleanUrl = cleanFirebaseUrl(API_BASE);
+          const expires = Date.now() + days * 86400 * 1000;
+          const planStr = days === 1 ? '1 Day Trial (FREE)' : days === 30 ? '1 Month VIP' : `${days} Days`;
+          const licData = {
+            machineId,
+            expires,
+            plan: planStr,
+            status: 'active',
+            updatedAt: Date.now()
+          };
+          await fetch(`${cleanUrl}/licenses/${encodeURIComponent(machineId)}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(licData)
+          });
+          await fetch(`${cleanUrl}/users/${encodeURIComponent(machineId)}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan: planStr, active: true })
+          });
+          await fetch(`${cleanUrl}/admin_msgs/${encodeURIComponent(machineId)}.json`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: `⚡ Remote license activated: ${planStr}`, ts: Date.now() })
+          });
+          showToast(`⚡ License activated on Firebase [${planName}]!`, 'var(--green)');
+          await loadAllData();
+          return;
+        }
 
     async function loadAllData() {
       try {
