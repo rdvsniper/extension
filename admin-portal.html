@@ -449,6 +449,48 @@
     let activeThreadMachineId = null;
     let allUsersData = [];
     let isWorkerConnected = false;
+    let chatPollTimer = null;
+
+    // ── LOCAL CONVERSATION STORAGE ──────────────────────────────────────────
+    // Persist all conversations in localStorage so they survive KV rate limits
+    // and Worker cold starts. Messages are deduped by ts+text fingerprint.
+    const CHAT_STORE_KEY = 'sniper_admin_chats';
+
+    function getLocalChats(machineId) {
+      try {
+        const all = JSON.parse(localStorage.getItem(CHAT_STORE_KEY) || '{}');
+        return all[machineId] || [];
+      } catch (_) { return []; }
+    }
+
+    function saveLocalChats(machineId, messages) {
+      try {
+        const all = JSON.parse(localStorage.getItem(CHAT_STORE_KEY) || '{}');
+        all[machineId] = messages;
+        // Keep max 50 conversation threads in localStorage
+        const keys = Object.keys(all);
+        if (keys.length > 50) {
+          // Remove oldest threads (by smallest last message timestamp)
+          keys.sort((a, b) => {
+            const lastA = all[a].length ? all[a][all[a].length - 1].ts : 0;
+            const lastB = all[b].length ? all[b][all[b].length - 1].ts : 0;
+            return lastA - lastB;
+          });
+          for (let i = 0; i < keys.length - 50; i++) delete all[keys[i]];
+        }
+        localStorage.setItem(CHAT_STORE_KEY, JSON.stringify(all));
+      } catch (_) {}
+    }
+
+    function mergeMessages(serverMsgs, localMsgs) {
+      // Combine, deduplicate by ts+text fingerprint, sort by timestamp
+      const map = new Map();
+      for (const m of [...localMsgs, ...serverMsgs]) {
+        const key = `${m.ts}_${m.from}_${m.text}`;
+        if (!map.has(key)) map.set(key, m);
+      }
+      return Array.from(map.values()).sort((a, b) => a.ts - b.ts).slice(-300);
+    }
 
     function switchTab(tabId, btn) {
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -653,32 +695,49 @@
       `;
       renderThreads(allUsersData);
       await loadChatMessages();
+
+      // Start auto-polling chat for the active thread every 3s
+      if (chatPollTimer) clearInterval(chatPollTimer);
+      chatPollTimer = setInterval(() => {
+        if (!document.hidden && activeThreadMachineId === machineId) loadChatMessages();
+      }, 3000);
     }
 
     async function loadChatMessages() {
       if (!activeThreadMachineId) return;
+      const mid = activeThreadMachineId;
+      const localMsgs = getLocalChats(mid);
+      let serverMsgs = [];
+
       try {
-        let res = await fetch(`${API_BASE}/admin/api/chat?machineId=${encodeURIComponent(activeThreadMachineId)}`);
+        let res = await fetch(`${API_BASE}/admin/api/chat?machineId=${encodeURIComponent(mid)}`);
         if (!res.ok) {
-          res = await fetch(`${API_BASE}/admin/api/chats?machineId=${encodeURIComponent(activeThreadMachineId)}`);
+          res = await fetch(`${API_BASE}/admin/api/chats?machineId=${encodeURIComponent(mid)}`);
         }
         const data = await res.json();
-        const box = document.getElementById('chatMessagesBox');
-        if (data.ok && data.messages && data.messages.length) {
-          box.innerHTML = data.messages.map(m => `
-            <div class="msg-bubble ${m.from === 'admin' ? 'admin' : 'user'}">
-              <div class="msg-meta">
-                <span>${m.from === 'admin' ? '👑 Admin Support' : '👤 Client User'}</span>
-                <span>${new Date(m.ts).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}</span>
-              </div>
-              <div>${escapeHtml(m.text)}</div>
+        if (data.ok && data.messages) serverMsgs = data.messages;
+      } catch (_) {}
+
+      // Merge server + local, deduplicate, persist merged set
+      const merged = mergeMessages(serverMsgs, localMsgs);
+      saveLocalChats(mid, merged);
+
+      const box = document.getElementById('chatMessagesBox');
+      if (merged.length) {
+        const wasAtBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 40;
+        box.innerHTML = merged.map(m => `
+          <div class="msg-bubble ${m.from === 'admin' ? 'admin' : 'user'}">
+            <div class="msg-meta">
+              <span>${m.from === 'admin' ? '👑 Admin Support' : '👤 Client User'}</span>
+              <span>${new Date(m.ts).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})} · ${new Date(m.ts).toLocaleDateString([], {day:'2-digit', month:'short'})}</span>
             </div>
-          `).join('');
-          box.scrollTop = box.scrollHeight;
-        } else {
-          box.innerHTML = `<div style="margin: auto; text-align: center; color: var(--text-muted); font-size: 13px;">No message history yet. Type a reply below to start chatting.</div>`;
-        }
-      } catch (e) {}
+            <div>${escapeHtml(m.text)}</div>
+          </div>
+        `).join('');
+        if (wasAtBottom) box.scrollTop = box.scrollHeight;
+      } else {
+        box.innerHTML = `<div style="margin: auto; text-align: center; color: var(--text-muted); font-size: 13px;">No message history yet. Type a reply below to start chatting.</div>`;
+      }
     }
 
     async function sendReply() {
@@ -690,6 +749,12 @@
         return;
       }
 
+      // Immediately store admin reply locally for instant display
+      const adminMsg = { from: 'admin', text, ts: Date.now() };
+      const localMsgs = getLocalChats(activeThreadMachineId);
+      localMsgs.push(adminMsg);
+      saveLocalChats(activeThreadMachineId, localMsgs);
+
       try {
         const res = await fetch(`${API_BASE}/admin/api/reply`, {
           method: 'POST',
@@ -699,7 +764,7 @@
         const data = await res.json();
         if (data.ok) {
           input.value = '';
-          showToast('✅ Reply sent! Delivered to extension instantly.', 'var(--green)');
+          showToast('✅ Reply sent!', 'var(--green)');
           loadChatMessages();
         } else {
           showToast('❌ Failed: ' + (data.error || 'Server error'), 'var(--red)');
@@ -707,6 +772,8 @@
       } catch (e) {
         showToast('❌ Network error sending reply', 'var(--red)');
       }
+      // Show immediately regardless of server response
+      loadChatMessages();
     }
 
     async function remoteActivate(machineId, days) {
