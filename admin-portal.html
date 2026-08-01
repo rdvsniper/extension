@@ -857,11 +857,11 @@
       return hasNew;
     }
 
-    // Fast poll every 2s for instant message detection
+    // Smart poll every 5s for fast message detection while saving Cloudflare operations
     loadAllData();
     setInterval(() => {
       if (!document.hidden) loadAllData();
-    }, 2000);
+    }, 5000);
   </script>
 
   <!-- DEBUG MODAL -->
