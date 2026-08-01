@@ -429,9 +429,9 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    // ── HARDCODED API URL — always points to active Cloudflare Worker ──────────
+    // ── HARDCODED API URL — defaults to active Firebase Realtime DB ──────────
     localStorage.removeItem('sniper_worker_url'); // clear any stale/broken cached URL
-    const API_BASE_DEFAULT = 'https://long-violet-f4a2.rdvsniperbot.workers.dev';
+    const API_BASE_DEFAULT = 'https://rdvsniperv3-default-rtdb.firebaseio.com';
     let API_BASE = API_BASE_DEFAULT;
     let activeThreadMachineId = null;
     let allUsersData = [];
@@ -524,16 +524,66 @@
       }
     }
 
+    function isFirebaseUrl(url) {
+      return url.includes('firebaseio.com') || url.includes('firebasedatabase.app');
+    }
+
     async function loadAllData() {
       try {
+        let newUsers = [];
+        let onlineCount = 0;
+
+        if (isFirebaseUrl(API_BASE)) {
+          const cleanUrl = API_BASE.replace(/\/+$/, '');
+          const res = await fetch(`${cleanUrl}/users.json`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const usersObj = (await res.json()) || {};
+          
+          // Also fetch licenses to get expiry
+          let licsObj = {};
+          try {
+            const licRes = await fetch(`${cleanUrl}/licenses.json`);
+            if (licRes.ok) licsObj = (await licRes.json()) || {};
+          } catch (_) {}
+
+          const now = Date.now();
+          newUsers = Object.keys(usersObj).map(chatId => {
+            const u = usersObj[chatId] || {};
+            const lic = licsObj[chatId] || {};
+            const lastSeen = u.lastSeen || 0;
+            const isOnline = (now - lastSeen) < (5 * 60 * 1000);
+            if (isOnline) onlineCount++;
+            return {
+              chatId,
+              username: u.username || 'Client',
+              plan: lic.plan || u.plan || 'N/A',
+              status: lic.status || u.status || 'active',
+              lastSeen,
+              tokenExpires: lic.expires || u.tokenExpires || null,
+              unread: u.unread || 0
+            };
+          }).sort((a, b) => b.lastSeen - a.lastSeen);
+
+          isWorkerConnected = true;
+          setBadgeStatus(true, '🔥 FIREBASE DB ONLINE');
+          document.getElementById('kvWarningBanner').style.display = 'none';
+          const data = { ok: true, users: newUsers, onlineCount };
+          if (allUsersData.length > 0) checkForNewMessages(newUsers);
+          else newUsers.forEach(u => { _prevUnreadMap[u.chatId] = u.unread || 0; });
+          allUsersData = newUsers;
+          renderStats(data);
+          renderUserTable(allUsersData);
+          renderThreads(allUsersData);
+          return;
+        }
+
         const res = await fetch(`${API_BASE}/admin/api/users`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data.ok) {
           isWorkerConnected = true;
           setBadgeStatus(true, 'SYSTEM ONLINE');
-          const newUsers = data.users || [];
-          // Detect new messages before updating allUsersData
+          newUsers = data.users || [];
           if (allUsersData.length > 0) checkForNewMessages(newUsers);
           else newUsers.forEach(u => { _prevUnreadMap[u.chatId] = u.unread || 0; });
           allUsersData = newUsers;
@@ -693,18 +743,30 @@
     }
 
     async function loadChatMessages() {
-      if (!activeThreadMachineId) return;
       const mid = activeThreadMachineId;
-      const localMsgs = getLocalChats(mid);
+      if (!mid) return;
       let serverMsgs = [];
+      const localMsgs = getLocalChats(mid);
 
       try {
-        let res = await fetch(`${API_BASE}/admin/api/chat?machineId=${encodeURIComponent(mid)}`);
-        if (!res.ok) {
-          res = await fetch(`${API_BASE}/admin/api/chats?machineId=${encodeURIComponent(mid)}`);
+        if (isFirebaseUrl(API_BASE)) {
+          const cleanUrl = API_BASE.replace(/\/+$/, '');
+          const res = await fetch(`${cleanUrl}/chats/${encodeURIComponent(mid)}.json`);
+          if (res.ok) {
+            const raw = await res.json();
+            if (raw) {
+              if (Array.isArray(raw)) serverMsgs = raw.filter(Boolean);
+              else serverMsgs = Object.keys(raw).map(k => raw[k]).sort((a, b) => a.ts - b.ts);
+            }
+          }
+        } else {
+          let res = await fetch(`${API_BASE}/admin/api/chat?machineId=${encodeURIComponent(mid)}`);
+          if (!res.ok) {
+            res = await fetch(`${API_BASE}/admin/api/chats?machineId=${encodeURIComponent(mid)}`);
+          }
+          const data = await res.json();
+          if (data.ok && data.messages) serverMsgs = data.messages;
         }
-        const data = await res.json();
-        if (data.ok && data.messages) serverMsgs = data.messages;
       } catch (_) {}
 
       // Merge server + local, deduplicate, persist merged set
@@ -745,6 +807,32 @@
       saveLocalChats(activeThreadMachineId, localMsgs);
 
       try {
+        if (isFirebaseUrl(API_BASE)) {
+          const cleanUrl = API_BASE.replace(/\/+$/, '');
+          // 1. Post message into chat history (visible in admin portal)
+          await fetch(`${cleanUrl}/chats/${encodeURIComponent(activeThreadMachineId)}.json`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(adminMsg),
+          });
+          // 2. Queue message for extension delivery via admin_msgs (polled by background.js)
+          await fetch(`${cleanUrl}/admin_msgs/${encodeURIComponent(activeThreadMachineId)}.json`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, ts: Date.now() }),
+          });
+          // 3. Clear unread count for this user
+          await fetch(`${cleanUrl}/users/${encodeURIComponent(activeThreadMachineId)}/unread.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: '0',
+          });
+          input.value = '';
+          showToast('✅ Reply sent to Firebase!', 'var(--green)');
+          loadChatMessages();
+          return;
+        }
+
         const res = await fetch(`${API_BASE}/admin/api/reply`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -769,6 +857,26 @@
       const planName = days === 1 ? '1 Day Trial (FREE)' : days === 7 ? '7 Days (60 USDT / 190 TND)' : days === 30 ? '1 Month (200 USDT / 585 TND)' : '3 Months (500 USDT / 1600 TND)';
       if (!confirm(`Activate Remote License [${planName}] for machine ${machineId}?`)) return;
       try {
+        if (isFirebaseUrl(API_BASE)) {
+          const cleanUrl = API_BASE.replace(/\/+$/, '');
+          const expires = Date.now() + days * 86400 * 1000;
+          const licData = {
+            machineId,
+            expires,
+            plan: days === 1 ? '1 Day Trial' : days === 30 ? '1 Month VIP' : `${days} Days`,
+            status: 'active',
+            updatedAt: Date.now()
+          };
+          await fetch(`${cleanUrl}/licenses/${encodeURIComponent(machineId)}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(licData)
+          });
+          showToast(`⚡ License activated on Firebase [${planName}]!`, 'var(--green)');
+          await loadAllData();
+          return;
+        }
+
         const res = await fetch(`${API_BASE}/admin/api/activate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -801,6 +909,19 @@
     async function toggleBlock(machineId, action) {
       if (!confirm(`Are you sure you want to ${action.toUpperCase()} device ${machineId}?`)) return;
       try {
+        if (isFirebaseUrl(API_BASE)) {
+          const cleanUrl = API_BASE.replace(/\/+$/, '');
+          const status = action === 'block' ? 'blocked' : 'active';
+          await fetch(`${cleanUrl}/licenses/${encodeURIComponent(machineId)}/status.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(status)
+          });
+          showToast(`Device ${machineId} is now ${status}!`, status === 'blocked' ? 'var(--red)' : 'var(--green)');
+          await loadAllData();
+          return;
+        }
+
         const res = await fetch(`${API_BASE}/admin/api/block`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
