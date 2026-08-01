@@ -1,7 +1,7 @@
 {
-  "latest": "3.5.0",
-  "minRequired": "3.5.0",
+  "latest": "3.3.3",
+  "minRequired": "3.3.3",
   "releaseDate": "2026-07-29",
-  "downloadUrl": "https://github.com/rdvsniper/extension/releases/download/rdv/RDV_SNIPER_v3.5.0.zip",
-  "changelog": "v3.5.0 "
+  "downloadUrl": "https://github.com/rdvsniper/extension/releases/download/rdv/RDV_SNIPER_v3.3.3.zip",
+  "changelog": "v3.3.0 "
 }
